@@ -11,7 +11,7 @@ MODE = "predict" #change to predict or track
 
 KNOWN_FACES_FILE = "known_faces.pkl"
 MATCH_THRESHOLD = 0.9  #change
-RECOGNIZE_EVERY_N_FRAMES = 5
+RECOGNIZE_EVERY_N_FRAMES = 10
 # -----------------------------
 
 yolo_device = "mps"
@@ -23,7 +23,7 @@ resnet = InceptionResnetV1(pretrained="vggface2").eval().to(face_device)
 with open(KNOWN_FACES_FILE, "rb") as f:
     known_faces = pickle.load(f)
 
-model = YOLO("yolov8m.pt")
+model = YOLO("yolov8s.pt")
 
 track_to_name = {}
 

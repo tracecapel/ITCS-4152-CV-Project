@@ -7,7 +7,7 @@ from facenet_pytorch import MTCNN, InceptionResnetV1
 from PIL import Image
 
 # ---------- settings ----------
-PERSON_NAME = "Robert"          #change for new ppl
+PERSON_NAME = "Andy"          #change for new ppl
 NUM_SAMPLES = 10             
 SAVE_FILE = "known_faces.pkl"
 # -----------------------------
