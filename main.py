@@ -44,7 +44,7 @@ image_feature_extractor = feature_extractor.FeatureExtractor(
 )
 
 #Adjust as needed
-config_path = r"C:\Users\trace\Downloads\New folder (3)\ITCS-4152-CV-Project\config.yaml"
+config_path = r""
 
 #finds faces in an image and crops it
 mtcnn = MTCNN(image_size=160, margin=20, device=device)
