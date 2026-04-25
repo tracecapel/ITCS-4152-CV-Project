@@ -114,7 +114,7 @@ for r in model.track(source=r'ITCS-4152-CV-Project\IMG_7593.mp4', tracker=config
                 temp_tracks[id] += hybrid_embedding
                 temp_frames[id] += 1
                 if temp_frames[id] >= buffer:
-                    students[int(box.id.item())] = temp_tracks[int(box.id.item())] / temp_frames[id]
+                    students[id] = temp_tracks[id] / temp_frames[id]
             else:
                 temp_tracks[id] = hybrid_embedding
                 temp_frames[id] = 1
