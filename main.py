@@ -7,6 +7,9 @@ from torchreid.reid.utils import feature_extractor
 import os
 from facenet_pytorch import MTCNN, InceptionResnetV1
 from PIL import Image
+from datetime import datetime
+
+
 
 
 frames_elapsed = 0
@@ -32,6 +35,9 @@ face_weight = .4
 # using yolo v26 model (latest model) nano version which is most efficient
 model = YOLO('yolo26n.pt')
 
+#Detect poses to determine if student is seated or standing
+pose_detector = YOLO("yolo26n-pose.pt")
+
 #Resnet for generating face embeddings
 
 resnet = InceptionResnetV1(pretrained="vggface2").eval().to(device)
@@ -44,17 +50,20 @@ image_feature_extractor = feature_extractor.FeatureExtractor(
 )
 
 #Adjust as needed
-config_path = r""
+config_path = r"C:\Users\trace\Downloads\New folder (3)\ITCS-4152-CV-Project\config.yaml"
 
 #finds faces in an image and crops it
 mtcnn = MTCNN(image_size=160, margin=20, device=device)
 
-#model.track tracks objects and assigns each one a unique ID 
+#model.track tracks objects and assigns each one a unique ID  r'ITCS-4152-CV-Project\IMG_7593.mp4'
 for r in model.track(source=r'ITCS-4152-CV-Project\IMG_7593.mp4', tracker=config_path, show=True, classes=[0], stream=True):
+    
     
 
     #the image to work with
     frame = r.orig_img
+
+    cv2.imwrite("Frame.jpg", frame)
     print(str(len(students)) + str(" Unique students being tracked"))
 
     # n buffer frames have past - reset all temporary tracks
@@ -108,13 +117,20 @@ for r in model.track(source=r'ITCS-4152-CV-Project\IMG_7593.mp4', tracker=config
                 break
 
         #Didnt match any of existing students- add new person embedding to students 
-        if unique:
+        if unique and box and box.id:
             id = int(box.id.item())
+
+            pose_result = pose_detector(crop)
+
+            
+
             if temp_tracks.__contains__(id):
                 temp_tracks[id] += hybrid_embedding
                 temp_frames[id] += 1
                 if temp_frames[id] >= buffer:
                     students[id] = temp_tracks[id] / temp_frames[id]
+                    cv2.imwrite("Students/student_" + str(id) + "_"+  ".jpg", crop)
+                    
             else:
                 temp_tracks[id] = hybrid_embedding
                 temp_frames[id] = 1
