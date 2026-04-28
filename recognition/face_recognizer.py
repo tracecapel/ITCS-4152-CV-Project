@@ -38,4 +38,4 @@ class FaceRecognizer:
         if best_score >= threshold:
             return best_name, best_score
 
-        return "unknown", best_score
+        return "Unknown", best_score

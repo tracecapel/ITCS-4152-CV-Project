@@ -5,3 +5,13 @@ output
 data
 .idea
 StudentIDs
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+runs/
+.DS_Store
+
+# Common local downloads (Ultralytics test image / cached weights)
+bus.jpg
+yolov8n-pose.pt
