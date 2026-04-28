@@ -126,16 +126,7 @@ arguments
         help="Override output video FPS (default: same as input)"
     )
 
-    # I DON'T KNOW IF WE SHOULD KEEP THIS ONE OR NOT
-    parser.add_argument(
-        "--classes",
-        type=int,
-        nargs="+",
-        default=[0],
-        help="YOLO class IDs to track (default: 0 for person)"
-    )
-
-    # Device settings, I ALSO DON'T KNOW IF WE NEED THIS ONE
+    # Device settings
     parser.add_argument(
         "--device",
         type=str,
