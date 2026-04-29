@@ -454,11 +454,16 @@ def main():
         print(f"[INFO] Display enabled (press 'q' to quit)")
 
     frame_count = 0
-
+     
+    last_good_face_embedding: Dict[int, torch.Tensor] = {}
+    last_good_appearance_embedding: Dict[int, torch.Tensor] = {}
+    
     try:
         for r in model.track(source=args.source, stream=True, classes=[0]):  # class 0 = person
             frame = r.orig_img
             frame_count += 1
+            
+            
 
             # Initialize writer once we know frame size
             if writer is None and not args.no_save:
@@ -537,98 +542,131 @@ def main():
                                     f"[INFO] Finalized checkpoint {checkpoint_idx}: {len(detected_students)} students detected")
 
             # ===================== PROCESS DETECTIONS =====================
+            
             if r.boxes is not None:
+                
                 for box in r.boxes:
                     if box is None or box.id is None:
                         continue
+                    try:
+                        track_id = int(box.id.item())
 
-                    track_id = int(box.id.item())
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
+                        crop = frame[y1:y2, x1:x2]
 
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    crop = frame[y1:y2, x1:x2]
+                        if crop.size == 0:
+                            continue
 
-                    if crop.size == 0:
-                        continue
-
-                    # ===================== FACE EMBEDDING =====================
-                    face_tensor = mtcnn(crop)
-
-                    if face_tensor is None:
-                        face_embedding = torch.zeros(512, device=device)
-                    else:
-                        face_tensor = face_tensor.to(device)
-
-                        with torch.no_grad():
-                            face_embedding = resnet(face_tensor.unsqueeze(0)).squeeze(0)
-
-                    # ===================== APPEARANCE EMBEDDING =====================
-                    appearance_embedding = image_feature_extractor(crop).squeeze(0)
-
-                    # ===================== MOVE TO SAME DEVICE =====================
-                    appearance_embedding = appearance_embedding.to(device)
-                    face_embedding = face_embedding.to(device)
-
-                    # ===================== HYBRID EMBEDDING =====================
-                    hybrid_embedding = torch.cat(
-                        (appearance_embedding * args.appearance_weight,
-                         face_embedding * args.face_weight),
-                        dim=0
-                    )
-                    hybrid_embedding = torch.nn.functional.normalize(hybrid_embedding, dim=0)
-
-                    # ===================== TRACKING =====================
-                    if tracker.is_unique(hybrid_embedding):
-                        tracker.update(track_id, hybrid_embedding, crop)
-
-                    # ===================== RECOGNITION =====================
-                    name, score = recognizer.recognize(face_embedding, args.face_confidence)
-
-                    # ===================== ATTENDANCE TRACKING =====================
-                    if name != "Unknown":
-                        # Add to all active checkpoint windows
-                        if is_camera:
-                            if in_window:
-                                checkpoint_window_detections[current_checkpoint_index].add(name)
+                        # ===================== FACE EMBEDDING =====================
+                        face_tensor = mtcnn(crop)
+                        if face_tensor is None:
+                            face_embedding = last_good_face_embedding.get(track_id, None)
+                            
+    
+                         # if no face history, try appearance-only recognition
+                            if face_embedding is None:
+                                face_embedding = last_good_appearance_embedding.get(
+                                track_id, torch.zeros(512, device=device)
+                                )
                         else:
-                            for checkpoint_idx in active_checkpoints:
-                                checkpoint_window_detections[checkpoint_idx].add(name)
+                            face_tensor = face_tensor.to(device)
+                            with torch.no_grad():
+                                face_embedding = resnet(face_tensor.unsqueeze(0)).squeeze(0)
+                                last_good_face_embedding[track_id] = face_embedding  # cache it
 
-                    # ===================== HAND DETECTION =====================
-                    result = detector.detect(crop)
-                    hand_raised = result["left"] or result["right"]
+                        appearance_embedding = image_feature_extractor(crop).squeeze(0).flatten().to(device)
+                        last_good_appearance_embedding[track_id] = appearance_embedding
 
-                    # Track hand raises with cooldown for recognized students
-                    if hand_raised and name != "Unknown":
-                        last_raise = last_hand_raise_frame.get(name, -float('inf'))
-                        frames_since_last_raise = frame_count - last_raise
+                        
 
-                        # Only count if cooldown period has passed
-                        if frames_since_last_raise >= hand_raise_cooldown_frames:
-                            hand_raises[name] = hand_raises.get(name, 0) + 1
-                            last_hand_raise_frame[name] = frame_count
+                        # ===================== HYBRID EMBEDDING =====================
+                        if appearance_embedding.numel() == 0 and face_embedding.numel() == 0:
+                            continue
 
-                            if args.verbose:
-                                print(f"[INFO] Hand raise counted for {name} at frame {frame_count}")
+                    
+                        if 0 in appearance_embedding.shape or 0 in face_embedding.shape:
+                            continue
+                    
 
-                    # ===================== LABEL =====================
-                    label = f"{name} ({score:.2f})"
+                        hybrid_embedding = torch.cat(
+                        (appearance_embedding * args.appearance_weight,
+                        face_embedding * args.face_weight),
+                        dim=0
+                        )
+                    
+                        
+                    
+                        hybrid_embedding = torch.nn.functional.normalize(hybrid_embedding, dim=0)
 
-                    if hand_raised:
-                        label += " | HAND RAISED"
+                        # ===================== TRACKING =====================
+                        if tracker.is_unique(hybrid_embedding):
+                            tracker.update(track_id, hybrid_embedding, crop)
 
-                    # ===================== DRAW =====================
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        # ===================== RECOGNITION =====================
+                        name, score = recognizer.recognize(face_embedding, args.face_confidence)
 
-                    cv2.putText(
-                        frame,
-                        label,
-                        (x1, y1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (0, 255, 0),
-                        2
-                    )
+                        # ===================== ATTENDANCE TRACKING =====================
+                        if name != "Unknown":
 
+                            color = (0, 255, 0)  # green for recognized
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                            cv2.putText(
+                                frame,
+                                "Logged!",
+                                (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.6,
+                                color,
+                                2
+                            )
+                        
+                            # Add to all active checkpoint windows
+                            if is_camera:
+                                if in_window:
+                                    checkpoint_window_detections[current_checkpoint_index].add(name)
+                            else:
+                                for checkpoint_idx in active_checkpoints:
+                                    checkpoint_window_detections[checkpoint_idx].add(name)
+                        else:
+                            color = (255, 0, 0)  # red for pending
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                            cv2.putText(
+                                frame,
+                                "Tracking",
+                                (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.6,
+                                color,
+                                2
+                            )
+
+                        # ===================== HAND DETECTION =====================
+                        result = detector.detect(crop)
+                        hand_raised = result["left"] or result["right"]
+
+                        # Track hand raises with cooldown for recognized students
+                        if hand_raised and name != "Unknown":
+                            last_raise = last_hand_raise_frame.get(name, -float('inf'))
+                            frames_since_last_raise = frame_count - last_raise
+
+                            # Only count if cooldown period has passed
+                            if frames_since_last_raise >= hand_raise_cooldown_frames:
+                                hand_raises[name] = hand_raises.get(name, 0) + 1
+                                last_hand_raise_frame[name] = frame_count
+
+                                if args.verbose:
+                                    print(f"[INFO] Hand raise counted for {name} at frame {frame_count}")
+
+                        # ===================== LABEL =====================
+                        label = f"{name} ({score:.2f})"
+
+                        if hand_raised:
+                            label += " | HAND RAISED"
+
+                        
+                    except:
+                        print("failed")
+                        continue
             # ===================== SHOW + SAVE =====================
             if args.display:
                 cv2.imshow(args.window_name, frame)
