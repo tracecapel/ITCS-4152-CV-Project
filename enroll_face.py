@@ -10,7 +10,7 @@ import argparse
 
 # ---------- settings ----------
 NUM_SAMPLES = 10             
-SAVE_FILE = "models/new_known_faces.pkl"
+SAVE_FILE = "models/known_faces.pkl"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # -----------------------------
 
@@ -112,6 +112,15 @@ def main():
         pickle.dump(known_faces, f)
 
     print(f"Saved embedding for {PERSON_NAME} to {SAVE_FILE}")
+
+    student_dir = os.path.join("StudentIDs", PERSON_NAME)
+
+    try:
+        os.makedirs(student_dir, exist_ok=True)
+        print(f"Created folder: {student_dir}")
+    except Exception as e:
+        print(f"Error creating folder: {e}")
+
 
 if __name__ == "__main__":
     exit(main())
