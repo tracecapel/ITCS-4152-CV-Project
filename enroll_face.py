@@ -10,7 +10,7 @@ import argparse
 
 # ---------- settings ----------
 NUM_SAMPLES = 10             
-SAVE_FILE = "models/known_faces.pkl"
+SAVE_FILE = "models/new_known_faces.pkl"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # -----------------------------
 
