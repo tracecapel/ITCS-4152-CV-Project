@@ -1,6 +1,5 @@
 yolo26n-pose.pt
 yolo26n.pt
-cltracker.py
 output
 .idea
 .venv/
@@ -9,6 +8,3 @@ __pycache__/
 *.py[cod]
 runs/
 .DS_Store
-
-yolo26n-pose.pt
-yolo26n.pt
