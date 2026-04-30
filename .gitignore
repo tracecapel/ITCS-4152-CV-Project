@@ -2,9 +2,7 @@ yolo26n-pose.pt
 yolo26n.pt
 cltracker.py
 output
-data
 .idea
-StudentIDs
 .venv/
 venv/
 __pycache__/
